@@ -1,0 +1,4 @@
+numpy==1.23.1
+gluonts
+mxnet==1.6.0
+openpyxl --upgrade
