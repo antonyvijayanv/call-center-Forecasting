@@ -28,33 +28,37 @@ dfCopy = df[df['Answered'] == 1].groupby('Date').size().reset_index(name='sumofa
 
 dfCopy.rename(columns={'Date': 'callsReceivedDate'}, inplace=True)
 
-dfCopy = dfCopy.set_index('callsReceivedDate')
+dfCopy["sumofansweredcalls"]=dfCopy["sumofansweredcalls"].astype(int)
 
+
+dfCopy = dfCopy.set_index('callsReceivedDate')
+print(f"dfCopy--{dfCopy}")
 freq = "D"  # rate at  which dataset is sampled
-start_train = pd.Timestamp("2021-01-01")  # start index
-start_test = pd.Timestamp(
-    "2021-03-27")  # start_index for test_set verify by df_all.columns[40000:].shape == df_test.shape
+start_train = pd.Timestamp("2021-01-01 00:00:00")
+start_test = pd.Timestamp("2021-03-31 00:00:00")
 prediction_length = 7
 
-df_train = dfCopy.iloc[:, 1:45].values
-df_test = dfCopy.iloc[:, 46:].values
+df_train = dfCopy.iloc[:45, :].values
+df_test = dfCopy.iloc[45:90, :].values
 
 print(f"df_test.shape--{df_test.shape}")
 print(f"df_train--{df_train.shape}")
 
 ts_code = dfCopy['sumofansweredcalls'].values
 
-print(ts_code)
+print(f"ts_code--{ts_code}")
 
-model = DeepAREstimator(
-    freq="D",
-    num_layers=2,
-    num_cells=32,
-    cell_type='lstm',
-    dropout_rate=0.25,
-    prediction_length=prediction_length,
-    trainer=Trainer(epochs=10)
-)
+model = DeepAREstimator(freq='D',
+                        context_length=24 * 5,
+                        # context length is number of time steps will look back here it is 5 days
+                        prediction_length=prediction_length,
+                        use_feat_static_cat=True,
+                        cardinality=[1],
+                        num_layers=2,
+                        num_cells=32,
+                        cell_type='lstm',
+                        dropout_rate=0.25,
+                        trainer=Trainer(epochs=20, learning_rate=1e-3))
 
 train_ds = ListDataset([
     {
@@ -66,6 +70,8 @@ train_ds = ListDataset([
                              ts_code.reshape(-1, 1))
 ], freq=freq)
 
+print(f"train_ds1--{train_ds}")
+
 test_ds = ListDataset([
     {
         FieldName.TARGET: target,
@@ -76,7 +82,51 @@ test_ds = ListDataset([
                              ts_code.reshape(-1, 1))
 ], freq=freq)
 
-predictor = model.train(training_data=train_ds)
+print(f"test_ds--{test_ds}")
+
+# predictor = model.train(training_data=train_ds)
+
+# df_train = dfCopy.iloc[:, 1:45].values
+# df_test = dfCopy.iloc[:, 46:].values
+#
+# print(f"df_test.shape--{df_test.shape}")
+# print(f"df_train--{df_train.shape}")
+#
+# ts_code = dfCopy['sumofansweredcalls'].values
+#
+# print(ts_code)
+#
+# model = DeepAREstimator(
+#     freq="D",
+#     num_layers=2,
+#     num_cells=32,
+#     cell_type='lstm',
+#     dropout_rate=0.25,
+#     prediction_length=prediction_length,
+#     trainer=Trainer(epochs=10)
+# )
+#
+# train_ds = ListDataset([
+#     {
+#         FieldName.TARGET: target,
+#         FieldName.START: start_train,
+#         FieldName.FEAT_STATIC_CAT: fsc
+#     }
+#     for (target, fsc) in zip(df_train,
+#                              ts_code.reshape(-1, 1))
+# ], freq=freq)
+#
+# test_ds = ListDataset([
+#     {
+#         FieldName.TARGET: target,
+#         FieldName.START: start_test,
+#         FieldName.FEAT_STATIC_CAT: fsc
+#     }
+#     for (target, fsc) in zip(df_test,
+#                              ts_code.reshape(-1, 1))
+# ], freq=freq)
+#
+# predictor = model.train(training_data=train_ds)
 
 #
 # training_data, test_gen = split(dfCopy, offset=-36)
